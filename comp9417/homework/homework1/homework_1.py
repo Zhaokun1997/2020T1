@@ -19,12 +19,15 @@ def Stochastic_gradient_decent(train_data_feature_x, test_data_feature_x,
     theta = [-1, -0.5]  # 𝜃 coefficients
     iter_count = 0
 
+    # for every iteration
     while iter_count < max_iteration:
         loss = 0
-        i = random.randint(0, training_len - 1)  # choose an observation in training dataset randomly
-        predicted_fuc = theta[0] * 1 + theta[1] * train_data_feature_x[i][0]
-        theta[0] = theta[0] + alpha * (train_data_output_y[i][0] - predicted_fuc) * 1
-        theta[1] = theta[1] + alpha * (train_data_output_y[i][0] - predicted_fuc) * train_data_feature_x[i][0]
+        # algorithmn body
+        for i in range(training_len):
+            predicted_fuc = theta[0] * 1 + theta[1] * train_data_feature_x[i][0]
+            theta[0] = theta[0] + alpha * (train_data_output_y[i][0] - predicted_fuc) * 1
+            theta[1] = theta[1] + alpha * (train_data_output_y[i][0] - predicted_fuc) * train_data_feature_x[i][0]
+        # calculate J(theta) cost fuction
         for j in range(training_len):
             predicted_fuc = theta[0] * 1 + theta[1] * train_data_feature_x[j][0]
             error = (train_data_output_y[j][0] - predicted_fuc) ** 2
