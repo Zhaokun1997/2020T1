@@ -140,7 +140,7 @@ if __name__ == '__main__':
     train_data_nb_store_x, test_data_nb_store_x, train_data_house_price_y, test_data_house_price_y = \
         train_test_split(data_nb_of_stores_x, data_house_price_y, test_size=0.25, shuffle=False)
     theta_nb_store_model, RMSE_training_nb_store, RMSE_testing_nb_store = \
-        Stochastic_gradient_decent(train_data_distance_x, test_data_distance_x,
+        Stochastic_gradient_decent(train_data_nb_store_x, test_data_nb_store_x,
                                    train_data_house_price_y, test_data_house_price_y)
     print("RMSE for", feature, "training data set is : ", RMSE_training_nb_store)
     print("RMSE for", feature, "testing data set is : ", RMSE_testing_nb_store)
