@@ -6,6 +6,7 @@ import sys
 import os
 import copy
 from collections import defaultdict
+import random
 
 studentid = os.path.basename(sys.modules[__name__].__file__)
 
@@ -18,6 +19,14 @@ def clean_cast(x):
     result = sorted(character_list)
     returnValue = ','.join(result)
     return returnValue
+
+
+def randomcolor():
+    colorArr = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F']
+    color = ""
+    for i in range(6):
+        color += colorArr[random.randint(0, 14)]
+    return "#" + color
 
 
 #################################################
@@ -252,8 +261,12 @@ def question_11(df10):
     keys = list(count_genres.keys())
     values = list(count_genres.values())
     res_df = pd.Series(values, index=keys, name='figure: question 11')  # create Series
-    res_df.plot.pie(autopct='%.2f%%', figsize=(9, 9))
-    plt.show()
+
+    fig1 = plt.figure()
+    ax_q11 = fig1.add_subplot()
+    ax_q11 = res_df.plot.pie(autopct='%.2f%%', figsize=(9, 9), title="Genres")
+
+    # plt.show()
     #################################################
     plt.savefig("{}-Q11.png".format(studentid))
 
@@ -266,6 +279,7 @@ def question_12(df10):
 
     #################################################
     # Your code goes here ...
+    # plt.clf()
     count_countries = defaultdict(int)
     for record in df10['production_countries']:
         origin_list = ast.literal_eval(record)
@@ -277,11 +291,20 @@ def question_12(df10):
     keys = [t[0] for t in res_list]
     values = [t[1] for t in res_list]
 
-    res_df = pd.Series(values, index=keys, name='q12')
-    res_df.plot.bar()
-    plt.show()
-    #################################################
+    # plot figure
+    fig2 = plt.figure()
+    ax_q12 = fig2.add_subplot()
 
+    res_df = pd.Series(values, index=keys, name='q12')
+    ax_q12 = res_df.plot.bar(x=keys, y=values, title="production countries", figsize=(9, 9))
+    # assign values
+    for x, y in enumerate(values):
+        plt.text(x, y + 3, '%s' % y, ha='center', va='bottom', fontsize=6)
+    # ajust position
+    plt.tight_layout()
+
+    # plt.show()
+    #################################################
     plt.savefig("{}-Q12.png".format(studentid))
 
 
@@ -293,9 +316,29 @@ def question_13(df10):
 
     #################################################
     # Your code goes here ...
+    # plt.clf()
+    # colors: 'af', 'da', 'es', 'de', 'fr', 'pt', 'en', 'ja', 'ko', 'zh', 'fi', 'no', 'it', 'sv', 'nl'
+    # colors_set: store the code of colors
+    colors = list(set(list(df10['original_language'])))  # color map
+    colors_set = [randomcolor() for i in range(len(colors))]  # color code
 
+    # query all colors:
+    df_list = []
+    for i in range(len(colors)):
+        qry = 'original_language == ' + '"' + colors[i] + '"' + ''
+        df_list.append(df10.query(qry))
+
+    # generate figures
+    fig3 = plt.figure()
+    ax_q13 = fig3.add_subplot()
+    ax_q13 = df_list[0].plot.scatter(x='vote_average', y='success_impact', label=colors[0], c=colors_set[0], marker='x',
+                                     figsize=(9, 9), title='vote_average vs success_impact')
+    for i in range(1, len(colors)):
+        df_list[i].plot.scatter(x='vote_average', y='success_impact', label=colors[i], c=colors_set[i], marker='x',
+                                ax=ax_q13)
+
+    # plt.show()
     #################################################
-
     plt.savefig("{}-Q13.png".format(studentid))
 
 
@@ -312,4 +355,4 @@ if __name__ == "__main__":
     df10 = question_10(df8)
     question_11(df10)
     question_12(df10)
-    # question_13(df10)
+    question_13(df10)
