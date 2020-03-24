@@ -17,8 +17,8 @@ def write_in_sqlite(data_frame, database_file, table_name):
     :param database_file: where the database is stored
     :param table_name: the name of the table
     """
-    cnx = sqlite3.connect(database_file) # make a connection
-    sql.to_sql(data_frame, name=table_name, con=cnx)
+    cnx = sqlite3.connect(database_file)  # make a connection
+    sql.to_sql(data_frame, name=table_name, con=cnx, index=True)
 
 
 def read_from_sqlite(database_file, table_name):

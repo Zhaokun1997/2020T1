@@ -7,6 +7,7 @@ from flask_restplus import fields
 from flask_restplus import reqparse
 from flask_restplus import inputs
 
+
 app = Flask(__name__)
 api = Api(app,
           default="Books",  # Default namespace
@@ -95,8 +96,9 @@ class Books(Resource):
     def get(self, id):
         if id not in df.index:
             api.abort(404, "Book {} does not exist".format(id))
-        # else
+        # else)
         book = dict(df.loc[id])
+        book['Identifier'] = int(id)  # after set_index, attribute Identifier get lost
         return book
 
     @api.response(404, "Book was not found")

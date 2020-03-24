@@ -11,15 +11,15 @@ app = Flask(__name__)
 api = Api(app)
 
 # The following is the schema of Book
-book_model = api.model('Book',
-                       {
-                           'Place_of_Publication': fields.String,
-                           'Date_of_Publication	Publisher': fields.Integer,
-                           'Title': fields.String,
-                           'Author': fields.String,
-                           'Flickr_URL': fields.String,
-                           'Identifier': fields.Integer,
-                       })
+book_model = api.model('Book', {
+    'Flickr_URL': fields.String,
+    'Publisher': fields.String,
+    'Author': fields.String,
+    'Title': fields.String,
+    'Date_of_Publication': fields.Integer,
+    'Identifier': fields.Integer,
+    'Place_of_Publication': fields.String
+})
 
 parser = reqparse.RequestParser()
 parser.add_argument('order', choices=list(column for column in book_model.keys()))
