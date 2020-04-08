@@ -15,6 +15,8 @@ text_data = np.array(['I love Brazil. Brazil!',
 # Create bag of words
 count = CountVectorizer()
 bag_of_words = count.fit_transform(text_data)
+print("bag_of_words:")
+print(count.vocabulary_)
 
 # Create feature matrix
 X = bag_of_words
@@ -30,6 +32,8 @@ y_test = y[3:]
 # Create new unseen test instances
 test1 = count.transform(['I like Italy, because Italy is beautiful'])
 test2 = count.transform(['I am from Germany, so I like Germany more'])
+print("test1: ", test1)
+print("test2: ", test2)
 
 print("----bnb")
 clf = BernoulliNB()
