@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import ast
 import warnings
+
 warnings.filterwarnings('ignore')
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -201,5 +202,3 @@ if __name__ == '__main__':
     df_part2_output['movie_id'] = movie_id
     df_part2_output['predicted_rating'] = predicted_rating
     df_part2_output.to_csv("z5235878.PART2.output.csv")
-
-
