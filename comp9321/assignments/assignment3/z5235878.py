@@ -2,18 +2,27 @@ import pandas as pd
 import numpy as np
 import sys
 import ast
+import json
+import matplotlib.pyplot as plt
+from sklearn.utils import shuffle
 import warnings
 
 warnings.filterwarnings('ignore')
+from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LinearRegression
 from sklearn.neighbors import KNeighborsClassifier
 from scipy.stats import pearsonr
 from sklearn.metrics import *
+from decimal import Decimal
 
 
 def load_data(path1, path2):
     df_train_origin = pd.read_csv(path1)
     df_validation_origin = pd.read_csv(path2)
+
+    # shuffle all data
+    df_train_origin = shuffle(df_train_origin)
+    df_validation_origin = shuffle(df_validation_origin)
     if df_train_origin is not None and df_validation_origin is not None:
         return df_train_origin, df_validation_origin
     else:
@@ -166,7 +175,9 @@ if __name__ == '__main__':
 
     # generate summary.csv for part1
     MSR = mean_squared_error(df_validation_origin['revenue'], predicted_y_part1)
-    correlation = pearsonr(df_validation_origin['revenue'], predicted_y_part1)[0]  # a tuple (correlaction, R-value)
+    correlation = round(pearsonr(df_validation_origin['revenue'], predicted_y_part1)[0],
+                        2)  # a tuple (correlaction, R-value)
+
     df_part1_summary = pd.DataFrame()
     df_part1_summary['zid'] = ["z5235878"]
     df_part1_summary['MSR'] = [MSR]
@@ -182,14 +193,41 @@ if __name__ == '__main__':
     df_part1_output.to_csv("z5235878.PART1.output.csv")
 
     # part2 model
-    model2 = KNeighborsClassifier(n_neighbors=5)
+    # do cross-validation
+    k_range = range(1, 31, 2)
+    k_scores = []
+
+    # iterate different k to determine the best k with the best perfromance
+    # using cross validation
+    for k in k_range:
+        model2 = KNeighborsClassifier(n_neighbors=k)
+        scores = cross_val_score(model2, df_train_X, df_train_origin['rating'], cv=10, scoring='accuracy')
+        k_scores.append(scores.mean())
+
+    # plot
+    plt.plot(k_range, k_scores)
+    plt.xlabel('Value of K for KNN')
+    plt.ylabel('Cross-Validated Accuracy')
+    plt.show()
+
+    # train model
+    best_k = k_range[k_scores.index(max(k_scores))]
+    print("best k we use for KNN Classifier is: ", best_k)
+    final_k = 19
+    model2 = KNeighborsClassifier(n_neighbors=final_k)
     model2.fit(df_train_X, df_train_origin['rating'])
     predicted_y_part2 = model2.predict(df_validation_X)
 
     # generate summary.csv for part2
-    average_precision = precision_score(df_validation_origin['rating'], predicted_y_part2, average="weighted")
-    average_recall = recall_score(df_validation_origin['rating'], predicted_y_part2, average="weighted")
-    accuracy = accuracy_score(df_validation_origin['rating'], predicted_y_part2)
+    # Decimal(a).quantize(Decimal("0.00"))
+    average_precision = Decimal(
+        round(precision_score(df_validation_origin['rating'], predicted_y_part2, average="macro"), 3)).quantize(
+        Decimal("0.00"))
+    average_recall = Decimal(
+        round(recall_score(df_validation_origin['rating'], predicted_y_part2, average="weighted"), 2)).quantize(
+        Decimal("0.00"))
+    accuracy = Decimal(round(accuracy_score(df_validation_origin['rating'], predicted_y_part2), 2)).quantize(
+        Decimal("0.00"))
     df_part2_summary = pd.DataFrame()
     df_part2_summary['average_precision'] = [average_precision]
     df_part2_summary['average_recall'] = [average_recall]
@@ -202,3 +240,15 @@ if __name__ == '__main__':
     df_part2_output['movie_id'] = movie_id
     df_part2_output['predicted_rating'] = predicted_rating
     df_part2_output.to_csv("z5235878.PART2.output.csv")
+
+    # output
+    # part 1
+    print("++++++++++++ part 1 +++++++++++++")
+    print("MSE: ", MSR)
+    print("correlation: ", correlation)
+
+    # part 2
+    print("++++++++++++ part 2 +++++++++++++")
+    print("precision_score: ", average_precision)
+    print("recall_score: ", average_recall)
+    print("accuracy_score: ", accuracy)
