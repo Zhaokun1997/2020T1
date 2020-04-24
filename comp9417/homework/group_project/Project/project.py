@@ -7,13 +7,13 @@ import nltk
 from nltk.corpus import stopwords
 from sklearn import metrics, pipeline
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import GridSearchCV
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
-from sklearn.model_selection import cross_val_score, KFold
-from scipy.stats import sem
+import copy
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
@@ -125,54 +125,180 @@ def regularize_data(df_train, df_test, words_list):
     return df_train, df_test
 
 
-def training_process_for_MultinomialNB_model(X_train, y_train, X_test, y_test):
-    # # get prior probability (probability of each topic is not uniformed)
-    # prior_pro = dict(df_train.groupby('topic_codes').count()['topic'] / df_train.shape[0])
-    # class_prior = list(prior_pro.values())
+def multiclass_logloss(actual, predicted, eps=1e-15):
+    # Logarithmic Loss  Metric
+    # :param actual: including actual target classes array
+    # :param predicted: predicted matrix, every class label has a coresponding possibility
+    # Convert 'actual' to a binary array if it's not already:
+    if len(actual.shape) == 1:
+        actual2 = np.zeros((actual.shape[0], predicted.shape[1]))
+        for i, val in enumerate(actual):
+            actual2[i, val] = 1
+        actual = actual2
 
+    clip = np.clip(predicted, eps, 1 - eps)
+    rows = actual.shape[0]
+    vsota = np.sum(actual * np.log(clip))
+    return -1.0 / rows * vsota
+
+
+def training_process_for_MultinomialNB_model(X_train, y_train, X_test, y_test, alpha=1.0):
     # create model and predict result
-    clf = MultinomialNB(fit_prior=True, class_prior=None)
+    print("++++++++++++++++++++ MultinomialNB Model Created +++++++++++++++++++++++")
+    clf = MultinomialNB(alpha=alpha, fit_prior=True, class_prior=None)
     model = clf.fit(X_train, y_train)
     predicted_y = model.predict(X_test)
-    print(accuracy_score(y_test, predicted_y))
-    print(precision_score(y_test, predicted_y, average='macro'))
-    print(recall_score(y_test, predicted_y, average='macro'))
-    print(f1_score(y_test, predicted_y, average='macro'))
-    print(classification_report(y_test, predicted_y))
+    predictions = model.predict_proba(X_test)
+
+    print("the logloss of this model is : %0.3f " % multiclass_logloss(y_test, predictions))
+    print("the accuracy score of this model is : ", clf.score(X_test, y_test))
+    print()
+    # print(accuracy_score(y_test, predicted_y[:,1]))
+    # print(precision_score(y_test, predicted_y, average='macro'))
+    # print(recall_score(y_test, predicted_y, average='macro'))
+    # print(f1_score(y_test, predicted_y, average='macro'))
+    # print("here below is classification report:")
+    # print(classification_report(y_test, predicted_y))
+    return predicted_y, predictions
 
 
-def training_process_for_MultinomialLR_model(X_train, y_train, X_test, y_test):
+def training_process_for_MultinomialLR_model(X_train, y_train, X_test, y_test, C=1.0):
     # create model and predict result
-    clf_lr = LogisticRegression(C=1.0, solver='lbfgs', multi_class='multinomial')
-    clf_lr.fit(X_train, y_train)
-    predicted_y = clf_lr.predict(X_test)
-    print(accuracy_score(y_test, predicted_y))
-    print(precision_score(y_test, predicted_y, average='macro'))
-    print(recall_score(y_test, predicted_y, average='macro'))
-    print(f1_score(y_test, predicted_y, average='macro'))
-    print(classification_report(y_test, predicted_y))
+    print("++++++++++++++++++++ MultinomialLR Model Created +++++++++++++++++++++++")
+    clf = LogisticRegression(C=C, solver='lbfgs', multi_class='multinomial')
+    model = clf.fit(X_train, y_train)
+    predicted_y = model.predict(X_test)
+    predictions = model.predict_proba(X_test)
+
+    print("the logloss of this model is : %0.3f " % multiclass_logloss(y_test, predictions))
+    print("the accuracy score of this model is : ", clf.score(X_test, y_test))
+    print()
+
+    # print(accuracy_score(y_test, predicted_y[:,1]))
+    # print(precision_score(y_test, predicted_y, average='macro'))
+    # print(recall_score(y_test, predicted_y, average='macro'))
+    # print(f1_score(y_test, predicted_y, average='macro'))
+    # print("here below is classification report:")
+    # print(classification_report(y_test, predicted_y))
+    return predicted_y, predictions
+
+
+def parameters_tuning_for_MultinomialNB_model(X_train, y_train):
+    # create score fuction
+    mll_scorer = metrics.make_scorer(multiclass_logloss, greater_is_better=False, needs_proba=True)
+    nb_model = MultinomialNB()
+
+    # create pipeline
+    clf = pipeline.Pipeline([('nb', nb_model)])
+
+    # search parameters
+    param_grid = {'nb__alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
+
+    # Grid Search Model Initialization
+    model = GridSearchCV(estimator=clf, param_grid=param_grid, scoring=mll_scorer,
+                         verbose=10, n_jobs=-1, iid=True, refit=True, cv=6)
+
+    # fit Grid Search Model
+    model.fit(X_train, y_train)
+    # print("Best score: %0.3f" % model.best_score_)
+    # print("Best parameters set:")
+    best_parameters = model.best_estimator_.get_params()
+    # for param_name in sorted(param_grid.keys()):
+    #     print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+    return best_parameters['nb__alpha']
+
+
+def parameters_tuning_for_MultinomialLR_model(X_train, y_train):
+    # create score fuction
+    mll_scorer = metrics.make_scorer(multiclass_logloss, greater_is_better=False, needs_proba=True)
+    lr_model = LogisticRegression(solver='lbfgs', multi_class='multinomial')
+    # create pipeline
+    clf = pipeline.Pipeline([('lr', lr_model)])
+    # search parameters
+    param_grid = {'lr__C': [0.01, 0.1, 1.0, 10, 100]}
+    # Grid Search Model Initialization
+    model = GridSearchCV(estimator=clf, param_grid=param_grid, scoring=mll_scorer,
+                         verbose=10, n_jobs=-1, iid=True, refit=True, cv=6)
+    # fit Grid Search Model
+    model.fit(X_train, y_train)
+    # print("Best score: %0.3f" % model.best_score_)
+    # print("Best parameters set:")
+    best_parameters = model.best_estimator_.get_params()
+    # for param_name in sorted(param_grid.keys()):
+    #     print("\t%s: %r" % (param_name, best_parameters[param_name]))
+
+    return best_parameters['lr__C']
+
+
+def output_results(predicted_y, predictions, df_test):
+    # generate topic codes for each topic
+    predicted_label = {
+        0: 'ARTS CULTURE ENTERTAINMENT',
+        1: 'BIOGRAPHIES PERSONALITIES PEOPLE',
+        2: 'DEFENCE',
+        3: 'DOMESTIC MARKETS',
+        4: 'FOREX MARKETS',
+        5: 'HEALTH',
+        6: 'MONEY MARKETS',
+        7: 'SCIENCE AND TECHNOLOGY',
+        8: 'SHARE LISTINGS',
+        9: 'SPORTS'
+    }
+    topic_num = []
+    topic_prob = []
+    for i in range(len(predicted_y)):
+        topic_num.append(predicted_y[i])
+        topic_prob.append(predictions[i][predicted_y[i]])
+
+    df_result = copy.deepcopy(df_test)
+    df_result['predicted_label'] = topic_num
+    df_result['predicted_prob'] = topic_prob
+
+    final_columns = ['article_number', 'predicted_label', 'predicted_prob']
+    df_result = df_result[final_columns]
+    df_result = df_result.replace({'predicted_label': predicted_label})
+    group1 = df_result.groupby('predicted_label')
+    print("Recommendations Plan : ")
+    for group_name, group_data in group1:
+        print("class label: ", group_name)
+        print(group_data.sort_values(by="predicted_prob", ascending=False)[0:10])
+        print()
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
 
 
 if __name__ == '__main__':
     # get stopwords
     nltk.download('stopwords')
     stop_words = list(stopwords.words('english'))  # get stop words
-    print(stop_words)
+    # print(stop_words)
 
     # do some data cleaning and pre-processing
     df_train, df_test = load_data("training.csv", "test.csv")
     df_train, df_test = pre_processing_data(df_train, df_test, stop_words)
-    feature_words = features_extract(df_train, df_test, 100)
+
+    # plot best feature number selection process
+
+    # nb_features = []
+    # accuracy_list = []
+    # for nb in range(50, 200, 5):
+    #     feature_words = features_extract(df_train, df_test, nb)
+    #     df_train, df_test = regularize_data(df_train, df_test, feature_words)
+    #     accuracy = training_process_for_MultinomialNB_model(df_train, df_test)
+    #     nb_features.append(nb)
+    #     accuracy_list.append(accuracy)
+
+    best_nb = 65  # final decision about feature numbers
+    feature_words = features_extract(df_train, df_test, best_nb)  # 238 in total
     df_train, df_test = regularize_data(df_train, df_test, feature_words)
 
     # create bag of words
     text_data_train = np.array(df_train['content_parsed_2'])
-    count_train = CountVectorizer()
-    bag_of_words_train = count_train.fit_transform(text_data_train)
+    counts = CountVectorizer()
+    bag_of_words_train = counts.fit_transform(text_data_train)
 
     text_data_test = np.array(df_test['content_parsed_2'])
-    count_test = CountVectorizer()
-    bag_of_words_test = count_test.fit_transform(text_data_test)
+    bag_of_words_test = counts.transform(text_data_test)
 
     # Create feature matrix and target, train model
     X_train = bag_of_words_train.toarray()
@@ -180,27 +306,15 @@ if __name__ == '__main__':
     X_test = bag_of_words_test.toarray()
     y_test = np.array(df_test['topic_codes'])
 
-    training_process_for_MultinomialNB_model(X_train, y_train, X_test, y_test)
+    best_alpha = parameters_tuning_for_MultinomialNB_model(X_train, y_train)
+    best_C = parameters_tuning_for_MultinomialLR_model(X_train, y_train)
 
+    # about model_1(MultinomialNB_model)
+    predicted_y_1, predictions_1 = training_process_for_MultinomialNB_model(X_train, y_train, X_test, y_test,
+                                                                            alpha=best_alpha)
+    output_results(predicted_y_1, predictions_1, df_test)
 
-    mll_scorer = metrics.make_scorer(multiclass_logloss, greater_is_better=False, needs_proba=True)
-    nb_model = MultinomialNB()
-
-    # 创建pipeline
-    clf = pipeline.Pipeline([('nb', nb_model)])
-
-    # 搜索参数设置
-    param_grid = {'nb__alpha': [0.001, 0.01, 0.1, 1, 10, 100]}
-
-    # 网格搜索模型（Grid Search Model）初始化
-    model = GridSearchCV(estimator=clf, param_grid=param_grid, scoring=mll_scorer,
-                         verbose=10, n_jobs=-1, iid=True, refit=True, cv=6)
-
-    # fit网格搜索模型
-    model.fit(X_train, y_train)
-    print("Best score: %0.3f" % model.best_score_)
-    print("Best parameters set:")
-    best_parameters = model.best_estimator_.get_params()
-    for param_name in sorted(param_grid.keys()):
-        print("\t%s: %r" % (param_name, best_parameters[param_name]))
-
+    # about model_2(MultinomialLR_model)
+    predicted_y_2, predictions_2 = training_process_for_MultinomialLR_model(X_train, y_train, X_test, y_test,
+                                                                            C=best_C)
+    output_results(predicted_y_2, predictions_2, df_test)
